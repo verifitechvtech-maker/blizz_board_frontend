@@ -1,16 +1,20 @@
-// Where the backend lives — set in frontend/.env (or your hosting's environment settings):
-//   VITE_API_URL=https://api.yourdomain.com        (with or without "/api" at the end)
-//   VITE_SOCKET_URL=https://api.yourdomain.com     (optional, defaults to the same server)
-// Without them the app talks to a backend on this computer (local development).
-const raw = String(import.meta.env.VITE_API_URL || "http://localhost:5000")
+// Where the backend lives.
+//   Deployed (Vercel build):   https://blizz-board-backend.onrender.com
+//   Local development (npm run dev): http://localhost:5000
+// VITE_API_URL (with or without "/api") in frontend/.env or Vercel → Settings → Environment
+// Variables overrides both. VITE_SOCKET_URL is optional (defaults to the same server).
+export const PRODUCTION_API_URL = "https://blizz-board-backend.onrender.com";
+const LOCAL_API_URL = "http://localhost:5000";
+
+const raw = String(import.meta.env.VITE_API_URL || (import.meta.env.PROD ? PRODUCTION_API_URL : LOCAL_API_URL))
   .trim()
   .replace(/\/+$/, "")
   .replace(/\/api$/, "");
 
-/** Backend origin, e.g. https://api.yourdomain.com */
+/** Backend origin, e.g. https://blizz-board-backend.onrender.com */
 export const SERVER_URL = raw;
 
-/** REST API base, e.g. https://api.yourdomain.com/api */
+/** REST API base, e.g. https://blizz-board-backend.onrender.com/api */
 export const API_URL = `${raw}/api`;
 
 /** Socket.IO server */
