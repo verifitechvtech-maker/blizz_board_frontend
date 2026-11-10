@@ -1,0 +1,25 @@
+/* =========================================================
+   Task Management Blizz board — shared theme tokens
+   Taken from the reference pages (Dashboard / Users / Tasks) and
+   used by every module so headers, buttons and cards match.
+========================================================= */
+:root {
+  --ts-hero: linear-gradient(135deg, #123f67 0%, #14577d 48%, #0f6b8f 100%);
+  --ts-hero-shadow: 0 22px 48px rgba(16, 69, 101, 0.2);
+  --ts-hero-border: 1px solid rgba(255, 255, 255, 0.18);
+  --ts-primary: linear-gradient(135deg, #16a6b8, #08798c);
+  --ts-primary-shadow: 0 10px 25px rgba(22, 166, 184, 0.34);
+  --ts-navy: #123b5d;
+  --ts-blue: #1677a8;
+  --ts-accent: #16a6b8;
+  --ts-text: #123b5d;
+  --ts-muted: #6e8799;
+  --ts-border: #d5e7ee;
+  --ts-card-bg: rgba(255, 255, 255, 0.92);
+  --ts-card-shadow: 0 8px 28px rgba(23, 50, 77, 0.045);
+  --ts-page-bg: linear-gradient(135deg, #edfafd 0%, #f7fbfd 44%, #eef8fa 100%);
+  --ts-on-hero: #ffffff;
+  --ts-on-hero-muted: rgba(255, 255, 255, 0.82);
+  --ts-glass: rgba(255, 255, 255, 0.13);
+  --ts-glass-border: rgba(255, 255, 255, 0.3);
+}
