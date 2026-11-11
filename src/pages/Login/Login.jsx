@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Mail,
   Lock,
@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
-import API from "../../api/config";
+import API, { wakeServer, describeRequestError } from "../../api/config";
 import { homePathFor } from "../../services/permissions";
 
 const Login = () => {
@@ -27,6 +27,15 @@ const Login = () => {
   });
 
   const [loading, setLoading] = useState(false);
+  // shown when sign-in takes long (a sleeping Render server needs up to ~1 minute to start)
+  const [slowServer, setSlowServer] = useState(false);
+  const slowTimer = useRef(null);
+
+  // Wake the backend as soon as the page opens, so it is ready by the time the user signs in
+  useEffect(() => {
+    wakeServer();
+    return () => clearTimeout(slowTimer.current);
+  }, []);
 
   // Forgot password → request goes to the user's administrator
   const [showForgot, setShowForgot] = useState(false);
@@ -55,7 +64,7 @@ const Login = () => {
       const res = await API.post("/api/auth/forgot-password", { email: forgotEmail.trim() });
       setForgotMessage(res.data?.message || "Your administrator has been notified.");
     } catch (err) {
-      setForgotError(err.response?.data?.message || "Could not send the request. Please try again.");
+      setForgotError(describeRequestError(err, "Could not send the request. Please try again."));
     } finally {
       setForgotSending(false);
     }
@@ -85,7 +94,11 @@ const Login = () => {
       return;
     }
 
+    if (loading) return; // no double submit
     setLoading(true);
+    setSlowServer(false);
+    clearTimeout(slowTimer.current);
+    slowTimer.current = setTimeout(() => setSlowServer(true), 6000);
 
     try {
       // ✅ REAL API CALL — replaces the demo setTimeout
@@ -127,14 +140,15 @@ const Login = () => {
       }
     } catch (err) {
       console.error("Login error:", err);
-      const message =
-        err.response?.data?.message || err.message || "Login failed. Please try again.";
+      const message = describeRequestError(err, "Login failed. Please try again.");
       setError(message);
       toast.error(message, {
         position: "top-right",
         autoClose: 3000,
       });
     } finally {
+      clearTimeout(slowTimer.current);
+      setSlowServer(false);
       setLoading(false);
     }
   };
@@ -522,6 +536,12 @@ const Login = () => {
                 )}
 
               </button>
+
+              {loading && slowServer && (
+                <p className="login-slow-note" role="status">
+                  The server is waking up — this can take up to a minute the first time. Please keep this page open.
+                </p>
+              )}
 
             </form>
 
@@ -1990,6 +2010,14 @@ const Login = () => {
 
           opacity:
             0.8;
+        }
+
+        .login-slow-note {
+          margin: 12px 0 0;
+          font-size: 12px;
+          line-height: 1.5;
+          color: #0e7490;
+          text-align: center;
         }
 
         .login-button.loading {
