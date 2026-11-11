@@ -836,6 +836,23 @@ const UsersPage = () => {
       return;
     }
 
+    // Emails are unique across the app — catch a duplicate from the list already on screen
+    // (the server still checks every other account and answers 409 with the reason)
+    const wantedEmail = userForm.email.trim().toLowerCase();
+    const sameEmail = users.find(
+      (u) =>
+        String(u.email || "").trim().toLowerCase() === wantedEmail &&
+        (!editingUser || String(u.id) !== String(editingUser.id))
+    );
+    if (sameEmail) {
+      showToast(
+        `${userForm.email.trim()} is already used by ${sameEmail.name}. Edit that user instead, or use a different email.`,
+        "error"
+      );
+
+      return;
+    }
+
     try {
       if (editingUser) {
         await api.put(
