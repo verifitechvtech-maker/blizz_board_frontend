@@ -276,7 +276,8 @@ const UsersPage = () => {
     setResendingId(user.id);
     try {
       const response = await api.post(`/users/${user.id}/resend-verification`);
-      showToast(response.data?.message || "Verification email sent.");
+      showToast(response.data?.message || "Verification email sent.", response.data?.emailSent === false ? "error" : "success");
+      offerVerifyLink(response.data, user.name);
     } catch (error) {
       showToast(
         error.response?.data?.message || "Failed to resend the verification email.",
@@ -391,6 +392,29 @@ const UsersPage = () => {
   const [selectedFile, setSelectedFile] = useState(null);
 
   const [toast, setToast] = useState(null);
+
+  // Verification email could not be sent (e.g. SMTP blocked on the host) → the server returns
+  // the one-time link so the administrator can send it to the person by hand.
+  const [verifyLinkInfo, setVerifyLinkInfo] = useState(null);
+  const [linkCopied, setLinkCopied] = useState(false);
+  const offerVerifyLink = (data, fallbackName = "") => {
+    if (!data?.verifyLink) return;
+    setLinkCopied(false);
+    setVerifyLinkInfo({
+      link: data.verifyLink,
+      name: data?.data?.name || fallbackName,
+      email: data?.data?.email || "",
+    });
+  };
+  const copyVerifyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(verifyLinkInfo.link);
+      setLinkCopied(true);
+    } catch {
+      setLinkCopied(false);
+      window.prompt("Copy this verification link:", verifyLinkInfo.link);
+    }
+  };
 
   const showToast = (message, type = "success") => {
     setToast({
@@ -879,8 +903,10 @@ const UsersPage = () => {
           }
         ).then((response) => {
           showToast(
-            response.data?.message || "User updated successfully."
+            response.data?.message || "User updated successfully.",
+            response.data?.emailSent === false ? "error" : "success"
           );
+          offerVerifyLink(response.data, userForm.name.trim());
         });
 
         if (userForm.password.trim()) {
@@ -925,6 +951,7 @@ const UsersPage = () => {
             "New user added successfully.",
           response.data?.emailSent === false ? "error" : "success"
         );
+        offerVerifyLink(response.data, userForm.name.trim());
       }
 
       setShowUserModal(false);
@@ -6514,6 +6541,51 @@ const UsersPage = () => {
                     <Upload size={13} /> Import Users
                   </button>
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ============ VERIFICATION LINK (email not sent) ============ */}
+        {verifyLinkInfo && (
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Verification link"
+            onClick={() => setVerifyLinkInfo(null)}
+            style={{ position: "fixed", inset: 0, background: "rgba(6,27,40,.55)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, zIndex: 3000 }}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{ background: "#fff", color: "#123B5D", borderRadius: 16, padding: 24, width: "100%", maxWidth: 520, boxShadow: "0 20px 50px rgba(0,0,0,.25)" }}
+            >
+              <h3 style={{ margin: "0 0 8px", fontSize: 18 }}>Send this link to {verifyLinkInfo.name || "the user"}</h3>
+              <p style={{ margin: "0 0 14px", fontSize: 13, lineHeight: 1.55, color: "#4C6A80" }}>
+                The verification email could not be sent from the server. {verifyLinkInfo.name || "The user"} cannot log in until
+                they open this link. Copy it and send it yourself (WhatsApp, chat, your own email). It works once, expires in
+                24 hours, and shows their password for 30 seconds.
+              </p>
+              <input
+                readOnly
+                value={verifyLinkInfo.link}
+                onFocus={(e) => e.target.select()}
+                style={{ width: "100%", boxSizing: "border-box", padding: "10px 12px", borderRadius: 10, border: "1px solid #D5E7EE", fontSize: 12, fontFamily: "monospace", background: "#F2F8FA", color: "#123B5D" }}
+              />
+              <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 16, flexWrap: "wrap" }}>
+                <button
+                  type="button"
+                  onClick={() => setVerifyLinkInfo(null)}
+                  style={{ padding: "9px 16px", borderRadius: 10, border: "1px solid #D5E7EE", background: "#fff", color: "#123B5D", fontWeight: 600, cursor: "pointer" }}
+                >
+                  Close
+                </button>
+                <button
+                  type="button"
+                  onClick={copyVerifyLink}
+                  style={{ padding: "9px 16px", borderRadius: 10, border: "none", background: "#16A6B8", color: "#fff", fontWeight: 700, cursor: "pointer" }}
+                >
+                  {linkCopied ? "Copied ✓" : "Copy link"}
+                </button>
               </div>
             </div>
           </div>
