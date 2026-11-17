@@ -1,0 +1,26 @@
+# Blizz Board on Hostinger (Apache) — same rules as vercel.json
+Options -MultiViews
+RewriteEngine On
+
+# Always use HTTPS
+RewriteCond %{HTTPS} off
+RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+# Real files and folders are served as they are
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# Every app page (/login, /dashboard/users, ...) opens the React app
+RewriteRule ^ index.html [L]
+
+<IfModule mod_headers.c>
+  # The service worker and the page itself must never be cached, or updates never arrive
+  <FilesMatch "^(sw\.js|index\.html)$">
+    Header set Cache-Control "no-cache, no-store, must-revalidate"
+  </FilesMatch>
+  # Built files have a hash in their name — safe to cache for a year
+  <If "%{REQUEST_URI} =~ m#^/assets/#">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </If>
+</IfModule>
