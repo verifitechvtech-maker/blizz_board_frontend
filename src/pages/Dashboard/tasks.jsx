@@ -74,6 +74,23 @@ import {
   UploadCloud,
   Upload,
   BadgeCheck,
+  Type,
+  AlignLeft,
+  Hash,
+  DollarSign,
+  SquareChevronDown,
+  Tags,
+  SquareCheck,
+  Globe,
+  Phone,
+  Gauge,
+  Star,
+  Briefcase,
+  Timer,
+  Milestone,
+  Ticket,
+  Wallet,
+  ShieldCheck,
 } from "lucide-react";
 import { API_URL as ENV_API_URL } from "../../config/env";
 
@@ -347,6 +364,7 @@ const normalizeTask = (t) => ({
   reminder: t?.reminder?.option && t.reminder.option !== "none" ? t.reminder : null,
   reminders: Array.isArray(t?.reminders) ? t.reminders : [],
   checklist: Array.isArray(t?.checklist) ? t.checklist : [],
+  customFields: Array.isArray(t?.customFields) ? t.customFields : [],
 
   name:
     t?.name ||
@@ -3862,6 +3880,365 @@ const AssignByEmail = ({ users = [], onAdd }) => {
   );
 };
 
+/* =========================================================
+   TASK COMPOSER (create / edit task popup) — styles
+========================================================= */
+
+const COMPOSER_CSS = `
+.tc-overlay { position: fixed; inset: 0; z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 20px; background: rgba(5,28,46,.55); backdrop-filter: blur(6px); }
+.tc-modal { width: min(760px, 100%); max-height: 92vh; display: flex; flex-direction: column; overflow: hidden; background: #fff; border-radius: 18px; box-shadow: 0 30px 80px rgba(3,26,43,.38); animation: tc-pop .22s ease both; }
+@keyframes tc-pop { from { opacity: 0; transform: translateY(10px) scale(.98); } to { opacity: 1; transform: none; } }
+@keyframes tc-drop { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+
+.tc-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; padding: 0 16px 0 22px; border-bottom: 1px solid ${colors.border}; }
+.tc-tabs { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; }
+.tc-tab { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; padding: 16px 10px 12px; border: 0; border-bottom: 2px solid transparent; background: none; font-size: 13px; font-weight: 600; color: ${colors.muted}; cursor: pointer; }
+.tc-tab:hover:not(:disabled) { color: ${colors.navy}; }
+.tc-tab.on { color: ${colors.navy}; border-bottom-color: ${colors.ocean}; }
+.tc-tab:disabled { opacity: .4; cursor: default; }
+.tc-head-right { display: flex; align-items: center; gap: 8px; padding: 10px 0; flex-shrink: 0; }
+.tc-ref { font-size: 11.5px; font-weight: 700; color: ${colors.oceanDark}; background: ${colors.oceanSoft}; border-radius: 999px; padding: 4px 10px; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tc-icon-btn { position: relative; width: 32px; height: 32px; display: grid; place-items: center; border: 0; border-radius: 50%; background: #EEF4F7; color: ${colors.muted}; cursor: pointer; }
+.tc-icon-btn:hover:not(:disabled) { background: ${colors.oceanSoft}; color: ${colors.oceanDark}; }
+.tc-icon-btn em { position: absolute; top: -3px; right: -3px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 999px; background: ${colors.ocean}; color: #fff; font-size: 10px; font-style: normal; font-weight: 700; line-height: 16px; }
+
+.tc-body { display: flex; flex-direction: column; gap: 12px; padding: 16px 22px 14px; overflow-y: auto; }
+.tc-body > * { flex-shrink: 0; }
+.tc-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.tc-mode { display: inline-flex; align-items: center; gap: 5px; margin-left: auto; font-size: 11.5px; font-weight: 600; color: ${colors.muted}; }
+
+.tc-chip { position: relative; display: inline-flex; align-items: center; gap: 6px; height: 30px; max-width: 260px; padding: 0 10px; border: 1px solid ${colors.border}; border-radius: 8px; background: #fff; font-size: 12.5px; font-weight: 600; color: ${colors.text}; cursor: pointer; transition: border-color .15s, background .15s, box-shadow .15s; }
+.tc-chip:hover { border-color: ${colors.ocean}; }
+.tc-chip.on { border-color: ${colors.ocean}; box-shadow: 0 0 0 3px rgba(22,166,184,.16); }
+.tc-chip.empty { color: ${colors.muted}; font-weight: 500; }
+.tc-chip-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tc-dot { position: absolute; top: -4px; right: -4px; width: 9px; height: 9px; border-radius: 50%; background: #E5484D; border: 2px solid #fff; }
+.tc-status { cursor: default; border-color: transparent; background: #EEF2F5; color: #4A6072; font-size: 11px; letter-spacing: .05em; text-transform: uppercase; }
+.tc-status:hover { border-color: transparent; }
+.tc-more { width: 30px; justify-content: center; padding: 0; font-size: 16px; letter-spacing: 1px; }
+
+.tc-title { width: 100%; padding: 2px 0; border: 0; outline: 0; background: transparent; font-size: 24px; font-weight: 700; color: ${colors.navy}; }
+.tc-title::placeholder { color: #A5B8C5; font-weight: 600; }
+.tc-desc { width: 100%; min-height: 64px; padding: 0; border: 0; outline: 0; resize: vertical; background: transparent; font-family: inherit; font-size: 14px; line-height: 1.55; color: ${colors.text}; }
+.tc-desc::placeholder { color: #A5B8C5; }
+
+.tc-panel { display: flex; flex-direction: column; gap: 10px; padding: 14px; border: 1px solid ${colors.border}; border-radius: 14px; background: #fff; box-shadow: 0 14px 36px rgba(18,59,93,.12); animation: tc-drop .16s ease both; }
+.tc-panel-narrow { max-width: 300px; }
+.tc-panel-head { display: flex; align-items: center; justify-content: space-between; font-size: 11.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: ${colors.navy}; }
+.tc-done { border: 0; background: none; font-size: 12px; font-weight: 700; color: ${colors.ocean}; cursor: pointer; text-transform: none; letter-spacing: 0; }
+.tc-hint { font-size: 11px; color: ${colors.muted}; }
+.tc-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.tc-mini { display: flex; flex-direction: column; gap: 5px; font-size: 11.5px; font-weight: 600; color: ${colors.muted}; }
+.tc-length { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 10px; background: ${colors.oceanSoft}; font-size: 12px; color: ${colors.oceanDark}; }
+.tc-length span { color: ${colors.muted}; }
+
+.tc-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+.tc-pill { display: inline-flex; align-items: center; gap: 6px; padding: 3px 8px 3px 3px; border-radius: 999px; background: ${colors.blueLight}; color: ${colors.blue}; font-size: 11.5px; font-weight: 700; }
+.tc-pill button { border: 0; background: none; color: inherit; cursor: pointer; font-size: 14px; line-height: 1; }
+.tc-avatar { width: 20px; height: 20px; display: grid; place-items: center; border-radius: 50%; background: ${colors.blue}; color: #fff; font-size: 10px; }
+.tc-rework-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid ${colors.border}; border-radius: 10px; background: #FFF6E5; font-size: 12px; color: ${colors.muted}; }
+.tc-rework-row.same { background: #E8F7F0; }
+.tc-rework-row strong { color: ${colors.navy}; }
+.tc-rework-row b { color: ${colors.oceanDark}; }
+.tc-rework-tag { padding: 2px 8px; border-radius: 999px; background: #fff; font-size: 10.5px; font-weight: 800; color: #B54708; }
+.tc-rework-row.same .tc-rework-tag { color: #0F8A5F; }
+
+.tc-switch { position: relative; width: 40px; height: 22px; flex-shrink: 0; border: 0; border-radius: 999px; background: ${colors.border}; cursor: pointer; transition: background .2s; }
+.tc-switch span { position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.25); transition: left .2s; }
+.tc-switch.on { background: ${colors.ocean}; }
+.tc-switch.on span { left: 21px; }
+
+.tc-menu-item { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 10px; border: 0; border-radius: 8px; background: none; text-align: left; font-size: 13px; font-weight: 500; color: ${colors.text}; cursor: pointer; }
+.tc-menu-item:hover, .tc-menu-item.on { background: ${colors.oceanSoft}; }
+.tc-menu-item small { margin-left: auto; font-size: 11px; color: ${colors.muted}; text-align: right; }
+.tc-menu-icon { width: 24px; height: 24px; display: grid; place-items: center; flex-shrink: 0; border-radius: 7px; background: ${colors.oceanSoft}; color: ${colors.oceanDark}; }
+.tc-menu-group { display: flex; flex-direction: column; gap: 2px; }
+.tc-menu-group .tc-section-label { padding: 6px 10px 2px; }
+
+.tc-section-label { margin-top: 4px; font-size: 11px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: ${colors.muted}; }
+.tc-field { border: 1px solid ${colors.border}; border-radius: 12px; overflow: hidden; }
+.tc-field-head { display: flex; align-items: center; gap: 8px; padding: 9px 12px; background: #F7FBFC; font-size: 13px; font-weight: 700; color: ${colors.navy}; }
+.tc-count { margin-left: auto; font-size: 11px; font-weight: 600; color: ${colors.muted}; }
+.tc-req { color: #E5484D; }
+.tc-field-x { width: 24px; height: 24px; display: grid; place-items: center; border: 0; border-radius: 6px; background: none; color: ${colors.muted}; cursor: pointer; }
+.tc-field-head .tc-field-x:first-of-type { margin-left: 0; }
+.tc-field-x:hover:not(:disabled) { background: #FDECEF; color: #A83C55; }
+.tc-field-x:disabled { opacity: .35; cursor: not-allowed; }
+.tc-field-body { display: flex; flex-direction: column; gap: 8px; padding: 12px; }
+
+.tc-add-wrap { display: flex; flex-direction: column; gap: 8px; }
+.tc-add-field { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; padding: 7px 11px; border: 1px dashed #B9D3DD; border-radius: 8px; background: #F7FBFC; font-size: 12.5px; font-weight: 600; color: ${colors.oceanDark}; cursor: pointer; }
+.tc-add-field:hover, .tc-add-field.on { border-style: solid; border-color: ${colors.ocean}; background: ${colors.oceanSoft}; }
+.tc-field-menu { max-width: 360px; max-height: 340px; overflow-y: auto; gap: 6px; }
+.tc-search { display: flex; align-items: center; gap: 8px; height: 36px; padding: 0 10px; border: 1px solid ${colors.border}; border-radius: 9px; color: ${colors.muted}; }
+.tc-search:focus-within { border-color: ${colors.ocean}; }
+.tc-search input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; font-size: 13px; color: ${colors.text}; }
+
+.tc-soft-btn { display: inline-flex; align-items: center; gap: 5px; padding: 0 12px; border: 0; border-radius: 9px; background: ${colors.oceanSoft}; font-size: 12.5px; font-weight: 700; color: ${colors.oceanDark}; cursor: pointer; }
+.tc-line { display: flex; align-items: center; gap: 8px; padding: 7px 9px; border-radius: 9px; background: ${colors.background}; font-size: 12.5px; color: ${colors.text}; }
+.tc-line-num { width: 20px; height: 20px; display: grid; place-items: center; flex-shrink: 0; border-radius: 50%; background: #fff; font-size: 10.5px; font-weight: 700; color: ${colors.oceanDark}; }
+.tc-line-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.tc-line-x { width: 26px; height: 26px; display: grid; place-items: center; flex-shrink: 0; border: 0; border-radius: 7px; background: none; color: ${colors.muted}; cursor: pointer; }
+.tc-line-x:hover:not(:disabled) { background: #fff; color: #A83C55; }
+.tc-drop { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 16px; border: 1.5px dashed #B9D3DD; border-radius: 12px; background: #F9FCFD; text-align: center; font-size: 12.5px; color: ${colors.oceanDark}; transition: all .15s; }
+.tc-drop span { font-size: 10.5px; color: ${colors.muted}; }
+.tc-drop.active { border-color: ${colors.ocean}; background: #E8F7F8; }
+
+.tc-foot { display: flex; align-items: center; gap: 10px; padding: 12px 16px 12px 22px; border-top: 1px solid ${colors.border}; background: #FBFDFE; }
+.tc-reward { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border: 1px solid ${colors.border}; border-radius: 8px; background: #fff; font-size: 12px; font-weight: 600; color: ${colors.muted}; }
+.tc-foot-right { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+.tc-ghost { padding: 8px 10px; border: 0; border-radius: 8px; background: none; font-size: 13px; font-weight: 600; color: ${colors.muted}; cursor: pointer; }
+.tc-ghost:hover:not(:disabled) { background: #EEF4F7; }
+.tc-primary { display: inline-flex; align-items: center; gap: 8px; height: 38px; padding: 0 16px; border: 0; border-radius: 9px; background: linear-gradient(135deg, ${colors.navy}, ${colors.oceanDark}); color: #fff; font-size: 13px; font-weight: 700; box-shadow: 0 8px 20px rgba(8,121,140,.25); }
+
+.tc-field-toggle { width: 100%; border: 0; text-align: left; cursor: pointer; font-family: inherit; }
+.tc-field-toggle:hover { background: ${colors.oceanSoft}; }
+.tc-field-toggle > svg:last-child { color: ${colors.muted}; }
+.tc-custom .tc-field-head { padding: 7px 10px; }
+.tc-field-name { flex: 1; min-width: 0; border: 1px solid transparent; border-radius: 6px; padding: 4px 6px; background: transparent; font-size: 13px; font-weight: 700; color: ${colors.navy}; outline: 0; }
+.tc-field-name:hover { border-color: ${colors.border}; background: #fff; }
+.tc-field-name:focus { border-color: ${colors.ocean}; background: #fff; }
+.tc-type-tag { flex-shrink: 0; padding: 2px 8px; border-radius: 999px; background: #fff; border: 1px solid ${colors.border}; font-size: 10.5px; font-weight: 700; color: ${colors.muted}; }
+.tc-menu-item:disabled { opacity: .45; cursor: default; background: none; }
+.tc-menu-icon-accent { background: linear-gradient(135deg, ${colors.navy}, ${colors.oceanDark}); color: #fff; }
+.tc-section-label { display: inline-flex; align-items: center; gap: 5px; }
+.tc-affix { display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 12px; border: 1px solid ${colors.border}; border-radius: 10px; background: #fff; color: ${colors.muted}; }
+.tc-affix:focus-within { border-color: ${colors.ocean}; }
+.tc-affix input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; font-size: 13px; color: ${colors.text}; }
+.tc-label-picks { display: flex; flex-wrap: wrap; gap: 6px; }
+.tc-label-pick { display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px; border: 1px solid ${colors.border}; border-radius: 999px; background: #fff; font-size: 12px; font-weight: 600; color: ${colors.muted}; cursor: pointer; }
+.tc-label-pick.on { border-color: ${colors.ocean}; background: ${colors.oceanSoft}; color: ${colors.oceanDark}; }
+.tc-progress { display: flex; align-items: center; gap: 12px; }
+.tc-progress input { flex: 1; accent-color: ${colors.ocean}; }
+.tc-progress strong { min-width: 42px; text-align: right; font-size: 13px; color: ${colors.navy}; }
+.tc-stars { display: flex; gap: 2px; }
+.tc-stars button { border: 0; background: none; padding: 2px; color: #C9D6DE; cursor: pointer; }
+.tc-stars button.on { color: #F5B301; }
+
+@media (max-width: 600px) {
+  .tc-overlay { padding: 0; align-items: flex-end; }
+  .tc-modal { max-height: 96vh; border-radius: 18px 18px 0 0; }
+  .tc-head { padding: 0 10px 0 12px; }
+  .tc-ref { display: none; }
+  .tc-body { padding: 14px 16px; }
+  .tc-title { font-size: 20px; }
+  .tc-grid { grid-template-columns: 1fr; }
+  .tc-reward { display: none; }
+  .tc-foot { padding: 10px 14px; }
+  .tc-foot-right { width: 100%; }
+  .tc-primary { margin-left: auto; }
+  .tc-field-menu, .tc-panel-narrow { max-width: none; }
+}
+`;
+
+/* =========================================================
+   CUSTOM FIELDS ("Create new field" in the task form)
+   Types must match CUSTOM_FIELD_TYPES in backend/src/models/Task.js
+========================================================= */
+
+const MAX_CUSTOM_FIELDS = 20;
+
+const CF_TYPES = {
+  text: { label: "Text", icon: Type, hint: "Short answer" },
+  textarea: { label: "Text area (long text)", icon: AlignLeft, hint: "Notes and details" },
+  number: { label: "Number", icon: Hash, hint: "Counts, quantities" },
+  money: { label: "Money", icon: DollarSign, hint: "Amounts and costs" },
+  date: { label: "Date", icon: CalendarDays, hint: "Any extra date" },
+  dropdown: { label: "Dropdown", icon: SquareChevronDown, hint: "Pick one choice", needsOptions: true },
+  labels: { label: "Labels", icon: Tags, hint: "Pick several tags", needsOptions: true },
+  checkbox: { label: "Checkbox", icon: SquareCheck, hint: "Yes / No" },
+  website: { label: "Website", icon: Globe, hint: "A link" },
+  email: { label: "Email", icon: Mail, hint: "An email address" },
+  phone: { label: "Phone", icon: Phone, hint: "A phone number" },
+  progress: { label: "Progress", icon: Gauge, hint: "0–100 %" },
+  rating: { label: "Rating", icon: Star, hint: "1–5 stars" },
+};
+
+// Ready-made fields that fit task management work
+const CF_PRESETS = [
+  { label: "Client / Customer", type: "text", icon: Briefcase, hint: "Who this work is for" },
+  { label: "Project phase", type: "dropdown", icon: Milestone, hint: "Planning → Delivery", options: ["Planning", "In progress", "Testing", "Delivery"] },
+  { label: "Estimated hours", type: "number", icon: Timer, hint: "Time you expect it to take" },
+  { label: "Budget", type: "money", icon: Wallet, hint: "Cost for this task" },
+  { label: "Progress", type: "progress", icon: Gauge, hint: "How far along (0–100 %)" },
+  { label: "Effort", type: "rating", icon: Star, hint: "How hard it is (1–5)" },
+  { label: "Ticket / Reference link", type: "website", icon: Ticket, hint: "Link to a ticket or doc" },
+  { label: "Needs approval", type: "checkbox", icon: ShieldCheck, hint: "Manager sign-off needed" },
+  { label: "Billable", type: "checkbox", icon: DollarSign, hint: "Charge the client" },
+  { label: "Work labels", type: "labels", icon: Tags, hint: "Bug, Feature, Urgent…", options: ["Bug", "Feature", "Urgent", "Client request", "Internal"] },
+  { label: "Contact email", type: "email", icon: Mail, hint: "Point of contact" },
+  { label: "Contact phone", type: "phone", icon: Phone, hint: "Point of contact" },
+  { label: "Follow-up date", type: "date", icon: CalendarDays, hint: "When to check back" },
+];
+
+const cfIsEmpty = (f) =>
+  f.value === null || f.value === undefined || f.value === "" || (Array.isArray(f.value) && f.value.length === 0);
+
+const formatCustomValue = (f) => {
+  const v = f.value;
+  switch (f.type) {
+    case "checkbox":
+      return v ? "Yes" : "No";
+    case "labels":
+      return (Array.isArray(v) ? v : []).join(", ");
+    case "progress":
+      return `${Number(v)}%`;
+    case "rating":
+      return "★".repeat(Number(v) || 0) + "☆".repeat(Math.max(0, 5 - (Number(v) || 0)));
+    case "money":
+      return Number(v).toLocaleString(undefined, { maximumFractionDigits: 2 });
+    case "date": {
+      const d = new Date(`${v}T00:00`);
+      return Number.isNaN(d.getTime()) ? String(v) : d.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+    }
+    default:
+      return String(v);
+  }
+};
+
+// Editor for one custom field's value (used in the task form)
+const CustomFieldInput = ({ field, onChange }) => {
+  const { type, value, options = [] } = field;
+  const text = value ?? "";
+
+  switch (type) {
+    case "textarea":
+      return <textarea value={text} onChange={(e) => onChange(e.target.value)} rows={3} maxLength={2000} placeholder="Write the details…" style={styles.textarea} />;
+    case "number":
+      return <input type="number" value={text} onChange={(e) => onChange(e.target.value)} placeholder="0" style={styles.input} />;
+    case "money":
+      return (
+        <div className="tc-affix">
+          <DollarSign size={14} />
+          <input type="number" min="0" step="0.01" value={text} onChange={(e) => onChange(e.target.value)} placeholder="0.00" />
+        </div>
+      );
+    case "date":
+      return <input type="date" value={text} onChange={(e) => onChange(e.target.value)} style={styles.input} />;
+    case "dropdown":
+      return (
+        <select value={text} onChange={(e) => onChange(e.target.value)} style={styles.input}>
+          <option value="">Select…</option>
+          {options.map((o) => (
+            <option key={o} value={o}>
+              {o}
+            </option>
+          ))}
+        </select>
+      );
+    case "labels": {
+      const picked = Array.isArray(value) ? value : [];
+      return (
+        <div className="tc-label-picks">
+          {options.map((o) => {
+            const on = picked.includes(o);
+            return (
+              <button
+                key={o}
+                type="button"
+                className={`tc-label-pick${on ? " on" : ""}`}
+                aria-pressed={on}
+                onClick={() => onChange(on ? picked.filter((x) => x !== o) : [...picked, o])}
+              >
+                {on && <CheckCircle2 size={12} />}
+                {o}
+              </button>
+            );
+          })}
+        </div>
+      );
+    }
+    case "checkbox":
+      return (
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <button type="button" role="switch" aria-checked={Boolean(value)} aria-label={field.label} className={`tc-switch${value ? " on" : ""}`} onClick={() => onChange(!value)}>
+            <span />
+          </button>
+          <span className="tc-hint" style={{ fontSize: 12.5, fontWeight: 600 }}>{value ? "Yes" : "No"}</span>
+        </div>
+      );
+    case "website":
+      return <input type="url" value={text} onChange={(e) => onChange(e.target.value)} placeholder="https://" style={styles.input} />;
+    case "email":
+      return <input type="email" value={text} onChange={(e) => onChange(e.target.value)} placeholder="name@company.com" style={styles.input} />;
+    case "phone":
+      return <input type="tel" value={text} onChange={(e) => onChange(e.target.value)} placeholder="+91 98765 43210" style={styles.input} />;
+    case "progress": {
+      const n = text === "" ? 0 : Number(text);
+      return (
+        <div className="tc-progress">
+          <input type="range" min="0" max="100" step="5" value={n} onChange={(e) => onChange(Number(e.target.value))} aria-label={field.label} />
+          <strong>{text === "" ? "—" : `${n}%`}</strong>
+        </div>
+      );
+    }
+    case "rating": {
+      const n = Number(text) || 0;
+      return (
+        <div className="tc-stars" role="radiogroup" aria-label={field.label}>
+          {[1, 2, 3, 4, 5].map((i) => (
+            <button
+              key={i}
+              type="button"
+              role="radio"
+              aria-checked={n === i}
+              aria-label={`${i} star${i > 1 ? "s" : ""}`}
+              className={i <= n ? "on" : ""}
+              onClick={() => onChange(n === i ? "" : i)}
+            >
+              <Star size={18} fill={i <= n ? "currentColor" : "none"} />
+            </button>
+          ))}
+        </div>
+      );
+    }
+    default:
+      return <input value={text} maxLength={300} onChange={(e) => onChange(e.target.value)} placeholder="Type here…" style={styles.input} />;
+  }
+};
+
+// Read-only list of a task's custom fields (task details) — inline styles so it works outside the form
+const cfView = {
+  wrap: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(170px, 1fr))", gap: 8 },
+  item: { display: "flex", flexDirection: "column", gap: 4, padding: "8px 10px", borderRadius: 10, border: `1px solid ${colors.border}`, background: colors.background, minWidth: 0 },
+  label: { display: "inline-flex", alignItems: "center", gap: 5, fontSize: 10.5, fontWeight: 700, letterSpacing: ".04em", textTransform: "uppercase", color: colors.muted },
+  value: { fontSize: 13, fontWeight: 600, color: colors.navy, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
+  track: { height: 6, borderRadius: 999, background: colors.border, overflow: "hidden" },
+};
+
+const CustomFieldsView = ({ fields = [] }) => {
+  const shown = fields.filter((f) => !cfIsEmpty(f));
+  if (!shown.length) return null;
+  return (
+    <div style={cfView.wrap}>
+      {shown.map((f) => {
+        const Icon = (CF_TYPES[f.type] || CF_TYPES.text).icon;
+        return (
+          <div key={f.key} style={cfView.item}>
+            <span style={cfView.label}>
+              <Icon size={12} /> {f.label}
+            </span>
+            {f.type === "website" ? (
+              <a href={f.value} target="_blank" rel="noopener noreferrer" style={{ ...cfView.value, color: colors.oceanDark }}>
+                {String(f.value).replace(/^https?:\/\//, "")}
+              </a>
+            ) : (
+              <span style={{ ...cfView.value, color: f.type === "rating" ? "#D99A00" : cfView.value.color }} title={formatCustomValue(f)}>
+                {formatCustomValue(f)}
+              </span>
+            )}
+            {f.type === "progress" && (
+              <span style={cfView.track}>
+                <i style={{ display: "block", height: "100%", width: `${Math.min(100, Number(f.value))}%`, background: colors.ocean }} />
+              </span>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
 const TaskFormModal = ({
   onClose,
   onCreate,
@@ -4065,6 +4442,30 @@ const TaskFormModal = ({
     error,
     setError,
   ] = useState("");
+
+  // Task Composer UI state
+  const [openPanel, setOpenPanel] = useState(null); // department | assignee | dates | priority | reminder
+  const [fieldMenuOpen, setFieldMenuOpen] = useState(false);
+  const [fieldQuery, setFieldQuery] = useState("");
+  const fileInputRef = useRef(null);
+  // which built-in field cards are expanded (Checklist, Attachments open like the old form)
+  const [openFields, setOpenFields] = useState(() => ({
+    checklist: true,
+    attachments: true,
+    subtasks: Boolean((editingTask?.subtasks || []).length),
+  }));
+  // custom fields created with "Create new field" (Client, Budget, Progress…)
+  const [customFields, setCustomFields] = useState(() =>
+    (editingTask?.customFields || []).map((f) => ({
+      key: f.key,
+      label: f.label,
+      type: f.type,
+      options: f.options || [],
+      value: f.value ?? (f.type === "labels" ? [] : f.type === "checkbox" ? false : ""),
+    }))
+  );
+  // "name your field" step when a plain field type is picked
+  const [fieldDraft, setFieldDraft] = useState(null); // { type, label, options }
 
   useEffect(() => {
     const previous =
@@ -4304,6 +4705,14 @@ const TaskFormModal = ({
       .filter((r) => r.desc.trim() || r.employee)
       .map(({ _id, desc, type, employee }) => ({ ...(_id ? { _id } : {}), desc: desc.trim(), type, employee: employee || null })),
 
+    customFields: customFields.map(({ key, label, type, options, value }) => ({
+      key,
+      label: label.trim(),
+      type,
+      options,
+      value: value === "" ? null : value,
+    })),
+
     reminders:
       reminderOn && reminders[0]?.customAt
         ? [
@@ -4434,6 +4843,12 @@ const TaskFormModal = ({
       }
     }
 
+    const unnamedField = customFields.findIndex((f) => !f.label.trim());
+    if (unnamedField !== -1) {
+      setError(`Custom field ${unnamedField + 1}: enter a name.`);
+      return;
+    }
+
     if (reminderOn && !reminders[0]?.customAt) {
       setError("Pick the date and time for the reminder, or switch the reminder off.");
       return;
@@ -4528,216 +4943,198 @@ const TaskFormModal = ({
     }
   };
 
+  /* ---------- Task Composer UI (layout only — the logic above is unchanged) ---------- */
+
+  const TASK_TYPES = [
+    { key: "standard", label: "Task", icon: CheckCircle2, hint: "One-off work with a due date" },
+    { key: "monthly", label: "Monthly target", icon: Target, hint: "Target from a start to an end date, tracked daily" },
+    { key: "rework", label: "Rework", icon: RotateCcw, hint: "Redo of an earlier task (pick its Task ID)" },
+  ];
+
+  // ---- custom fields ("Create new field") ----
+  const closeFieldMenu = () => {
+    setFieldMenuOpen(false);
+    setFieldQuery("");
+    setFieldDraft(null);
+  };
+  const addCustomField = ({ label, type, options = [] }) => {
+    const key = `cf_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
+    setCustomFields((list) => [
+      ...list,
+      { key, label: label.trim(), type, options, value: type === "labels" ? [] : type === "checkbox" ? false : "" },
+    ]);
+    closeFieldMenu();
+    setOpenPanel(null);
+  };
+  const updateCustomField = (key, patch) =>
+    setCustomFields((list) => list.map((f) => (f.key === key ? { ...f, ...patch } : f)));
+  const removeCustomField = (key) => setCustomFields((list) => list.filter((f) => f.key !== key));
+  const toggleFieldCard = (key) => setOpenFields((o) => ({ ...o, [key]: !o[key] }));
+
+  const togglePanel = (name) => {
+    setFieldMenuOpen(false);
+    setOpenPanel((current) => (current === name ? null : name));
+  };
+
+  const shortDate = (value) => {
+    if (!value) return "";
+    const d = new Date(value.length <= 10 ? `${value}T00:00` : value);
+    return Number.isNaN(d.getTime()) ? value : d.toLocaleDateString(undefined, { day: "numeric", month: "short" });
+  };
+  const shortDateTime = (value) => {
+    if (!value) return "";
+    const d = new Date(value);
+    return Number.isNaN(d.getTime())
+      ? value
+      : d.toLocaleString(undefined, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
+  };
+
+  const referenceLabel = isEdit
+    ? referenceId || "—"
+    : isRework && reworkPreview.length
+      ? reworkPreview.map((p) => p.referenceId).join(", ")
+      : departments.find((d) => d.name === department)?.nextReferenceId || "Auto ID";
+
+  const assigneeNames = assignedUsers.map(userNameById);
+  const assigneeLabel = !assigneeNames.length
+    ? "Assignee"
+    : assigneeNames.length === 1
+      ? assigneeNames[0]
+      : `${assigneeNames[0]} +${assigneeNames.length - 1}`;
+
+  const departmentLabel = !selectedDepartments.length
+    ? "Select department"
+    : selectedDepartments.length === 1
+      ? selectedDepartments[0]
+      : `${selectedDepartments[0]} +${selectedDepartments.length - 1}`;
+
+  const datesLabel = isMonthly
+    ? "Monthly range"
+    : startDate || dueDate
+      ? `${shortDate(startDate) || "…"} → ${shortDate(dueDate) || "…"}`
+      : "Dates";
+
+  const reminderLabel = reminderOn && reminders[0]?.customAt ? shortDateTime(reminders[0].customAt) : "Reminder";
+  const statusLabel = isEdit ? normalizeStatus(editingTask.status) : "To Do";
+  const PriorityIcon = priorityConfig[priority]?.icon || Minus;
+  const length = !isMonthly ? taskDuration(startDate, startTime, dueDate, dueTime) : null;
+
+  const missing = {
+    department: !selectedDepartments.length,
+    assignee: !assignedUsers.length,
+    dates: !isMonthly && !dueDate,
+  };
+
+  const q = fieldQuery.trim().toLowerCase();
+  const usedLabels = new Set(customFields.map((f) => f.label.trim().toLowerCase()));
+  const presetMatches = CF_PRESETS.filter(
+    (p) => !q || `${p.label} ${p.hint || ""} ${CF_TYPES[p.type].label}`.toLowerCase().includes(q)
+  );
+  const typeMatches = Object.entries(CF_TYPES).filter(
+    ([, t]) => !q || `${t.label} ${t.hint || ""}`.toLowerCase().includes(q)
+  );
+
+  const chip = (name, Icon, label, { empty, required, style } = {}) => (
+    <button
+      type="button"
+      className={`tc-chip${openPanel === name ? " on" : ""}${empty ? " empty" : ""}`}
+      onClick={() => togglePanel(name)}
+      aria-expanded={openPanel === name}
+      style={style}
+    >
+      <Icon size={14} />
+      <span className="tc-chip-text">{label}</span>
+      {required && <span className="tc-dot" title="Required" />}
+    </button>
+  );
+
+  const panelHead = (title) => (
+    <div className="tc-panel-head">
+      <span>{title}</span>
+      <button type="button" className="tc-done" onClick={() => setOpenPanel(null)}>
+        Done
+      </button>
+    </div>
+  );
+
   return (
     <div
-      className="ts-modal-overlay"
-      style={styles.modalOverlay}
+      className="tc-overlay"
       onMouseDown={(event) => {
-        if (
-          event.target ===
-          event.currentTarget
-        ) {
-          if (!submitting) {
-            onClose();
-          }
+        if (event.target === event.currentTarget && !submitting) onClose();
+      }}
+      onKeyDown={(event) => {
+        if (event.key !== "Escape") return;
+        if (openPanel || fieldMenuOpen) {
+          event.stopPropagation();
+          setOpenPanel(null);
+          closeFieldMenu();
+        } else if (!submitting) {
+          onClose();
         }
       }}
     >
+      <style>{COMPOSER_CSS}</style>
+
       <div
-        className="ts-modal"
-        style={styles.modal}
-        onMouseDown={(e) =>
-          e.stopPropagation()
-        }
+        className="tc-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label={isEdit ? "Edit task" : "Create task"}
+        onMouseDown={(e) => e.stopPropagation()}
       >
-        {/* HEADER */}
-
-        <div
-          style={
-            styles.modalHeader
-          }
-        >
-          <div
-            style={
-              styles.modalHeaderGlow
-            }
-          />
-
-          <div
-            style={
-              styles.modalTitleRow
-            }
-          >
-            <div
-              style={
-                styles.modalTitleIcon
-              }
-            >
-              {isEdit ? (
-                <Pencil size={19} />
-              ) : (
-                <Plus size={19} />
-              )}
-            </div>
-
-            <div>
-              <h2
-                style={
-                  styles.modalTitle
-                }
-              >
-                {isEdit
-                  ? "Edit Task"
-                  : "Create New Task"}
-              </h2>
-
-              <p
-                style={
-                  styles.modalSubtitle
-                }
-              >
-                {isEdit
-                  ? "Refine your task and keep your workflow moving"
-                  : "Build a clear task and assign it to your workspace"}
-              </p>
-            </div>
+        {/* HEADER — task type tabs, reference ID, close */}
+        <div className="tc-head">
+          <div className="tc-tabs" role="tablist" aria-label="Task type">
+            {TASK_TYPES.map((option) => {
+              const active = taskType === option.key;
+              const TypeIcon = option.icon;
+              return (
+                <button
+                  key={option.key}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  className={`tc-tab${active ? " on" : ""}`}
+                  disabled={isEdit && !active}
+                  title={isEdit && !active ? "The task type can't change after it is created" : option.hint}
+                  onClick={() => {
+                    if (isEdit) return;
+                    setTaskType(option.key);
+                    if (option.key !== "rework") setReworkRef(null);
+                  }}
+                >
+                  <TypeIcon size={14} />
+                  {option.label}
+                </button>
+              );
+            })}
           </div>
 
-          <button
-            type="button"
-            onClick={onClose}
-            style={
-              styles.closeButton
-            }
-            disabled={submitting}
-          >
-            <X size={19} />
-          </button>
+          <div className="tc-head-right">
+            <span className="tc-ref" title="Reference ID is created automatically from the department's code">
+              #{referenceLabel}
+            </span>
+            <button type="button" className="tc-icon-btn" onClick={onClose} disabled={submitting} aria-label="Close">
+              <X size={16} />
+            </button>
+          </div>
         </div>
 
         {/* BODY */}
-
-        <div
-          className="ts-modal-content"
-          style={styles.modalBody}
-        >
-          {/* TASK TYPE */}
-
-          <div style={styles.field}>
-            <label style={styles.label}>Task Type</label>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }} role="radiogroup" aria-label="Task type">
-              {[
-                { key: "standard", label: "Standard Task", hint: "One-off work with a due date" },
-                { key: "monthly", label: "Monthly Task", hint: "Target from a start to an end date, tracked daily" },
-                { key: "rework", label: "Rework Task", hint: "Redo of an earlier task (pick its Task ID)" },
-              ].map((option) => {
-                const active = taskType === option.key;
-                return (
-                  <button
-                    key={option.key}
-                    type="button"
-                    role="radio"
-                    aria-checked={active}
-                    disabled={isEdit && !active}
-                    title={isEdit && !active ? "The task type can't change after it is created" : option.hint}
-                    onClick={() => {
-                      if (isEdit) return;
-                      setTaskType(option.key);
-                      if (option.key !== "rework") setReworkRef(null);
-                    }}
-                    style={{
-                      flex: "1 1 180px",
-                      textAlign: "left",
-                      padding: "10px 12px",
-                      borderRadius: 12,
-                      border: `1px solid ${active ? colors.ocean : colors.border}`,
-                      background: active ? colors.oceanSoft : colors.white,
-                      color: active ? colors.oceanDark : colors.muted,
-                      cursor: isEdit ? "default" : "pointer",
-                      opacity: isEdit && !active ? 0.5 : 1,
-                    }}
-                  >
-                    <strong style={{ display: "block", fontSize: 13, color: active ? colors.navy : colors.text }}>{option.label}</strong>
-                    <span style={{ fontSize: 11 }}>{option.hint}</span>
-                  </button>
-                );
-              })}
-            </div>
+        <div className="tc-body">
+          {/* where the task lives */}
+          <div className="tc-row">
+            {chip("department", Building2, departmentLabel, { empty: missing.department, required: missing.department })}
+            <span className="tc-mode">
+              {isEdit ? <Pencil size={12} /> : <Sparkles size={12} />}
+              {isEdit ? "Editing task" : "New task"}
+            </span>
           </div>
 
-          <div
-            style={
-              styles.formGridThree
-            }
-          >
-            <div style={styles.field}>
-              <label
-                style={styles.label}
-              >
-                Task Name{" "}
-                <span
-                  style={
-                    styles.requiredStar
-                  }
-                >
-                  *
-                </span>
-              </label>
-
-              <input
-                value={taskName}
-                onChange={(e) =>
-                  setTaskName(
-                    e.target.value
-                  )
-                }
-                placeholder="Enter task name"
-                style={styles.input}
-                autoFocus
-              />
-            </div>
-
-            <div style={styles.field}>
-              <label
-                style={styles.label}
-              >
-                Reference ID{" "}
-                <span style={{ fontWeight: 500, color: colors.muted, fontSize: 10 }}>
-                  {isEdit ? "(fixed)" : "(auto)"}
-                </span>
-              </label>
-
-              {/* Set by the server from the department's code: FF1, FF2… */}
-              <input
-                value={
-                  isEdit
-                    ? referenceId || "—"
-                    : isRework && reworkPreview.length
-                      ? reworkPreview.map((p) => p.referenceId).join(", ")
-                      : departments.find((d) => d.name === department)?.nextReferenceId ||
-                      (department ? "Created automatically" : "Select a department first")
-                }
-                readOnly
-                aria-readonly="true"
-                title="Reference ID is created automatically from the department's code"
-                style={{ ...styles.input, background: colors.background, color: colors.oceanDark, fontWeight: 700, cursor: "default" }}
-              />
-            </div>
-
-            <div style={styles.field}>
-              <label
-                style={styles.label}
-              >
-                Departments{" "}
-                <span
-                  style={
-                    styles.requiredStar
-                  }
-                >
-                  *
-                </span>
-              </label>
-
+          {openPanel === "department" && (
+            <div className="tc-panel">
+              {panelHead("Departments")}
               <DepartmentMultiSelect
                 departments={departments}
                 selected={selectedDepartments}
@@ -4745,484 +5142,282 @@ const TaskFormModal = ({
                 inputStyle={styles.select}
                 users={users}
               />
-            </div>
-          </div>
-
-          {/* REWORK REFERENCE TASK ID — only for a Rework Task (required there) */}
-
-          {isRework && (
-          <div style={styles.field}>
-            <label style={styles.label}>
-              Rework Reference Task ID{" "}
-              <span style={styles.requiredStar}>*</span>
-            </label>
-            {isEdit ? (
-              <div style={{ ...styles.input, display: "flex", alignItems: "center", background: colors.background, color: reworkRef ? colors.text : colors.muted }}>
-                {reworkRef ? `#${reworkRef.referenceId} — ${reworkRef.name}` : "No original task"}
-              </div>
-            ) : (
-              <ReworkReferencePicker value={reworkRef} onChange={handleReworkPick} required inputStyle={styles.input} />
-            )}
-          </div>
-          )}
-
-          {/* ASSIGNED USERS / REASSIGNMENT */}
-
-          <div style={styles.field}>
-            <label style={styles.label}>
-              {isEdit ? "Reassign Task — Select Users" : "Assign Task — Select Users"}{" "}
-              <span style={styles.requiredStar}>*</span>
-            </label>
-            <UserMultiSelect
-              users={availableUsers}
-              selected={assignedUsers}
-              selectedDepartments={selectedDepartments}
-              onChange={(selected) => {
-                setAssignedUsers(selected);
-                setAssignedUser(selected[0] || "");
-              }}
-            />
-            <p style={styles.fieldHint}>
-              Open the list to pick one or more users, or use “Select all”.
-              {isEdit ? " Change the selection to reassign the task." : ""}
-            </p>
-            <AssignByEmail
-              users={users}
-              onAdd={(id) => {
-                const next = assignedUsers.includes(id) ? assignedUsers : [...assignedUsers, id];
-                setAssignedUsers(next);
-                setAssignedUser(next[0] || "");
-              }}
-            />
-            {assignedUsers.length > 0 && (
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                {assignedUsers.map((id) => (
-                  <span key={id} style={{ background: colors.blueLight, color: colors.blue, borderRadius: 999, padding: "5px 9px", fontSize: 11, fontWeight: 700 }}>
-                    {userNameById(id)}
-                    <button type="button" onClick={() => {
-                      const next = assignedUsers.filter((item) => item !== id);
-                      setAssignedUsers(next);
-                      setAssignedUser(next[0] || "");
-                    }} aria-label={`Remove ${userNameById(id)}`} style={{ marginLeft: 7, border: 0, background: "transparent", color: "inherit", cursor: "pointer" }}>×</button>
-                  </span>
-                ))}
-              </div>
-            )}
-
-            {/* Rework: is each person the original assignee or a new one, and which ID they get */}
-            {isRework && reworkPreview.length > 0 && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                {reworkPreview.map((p) => (
-                  <div
-                    key={p.userId}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      flexWrap: "wrap",
-                      gap: 8,
-                      padding: "8px 10px",
-                      borderRadius: 10,
-                      border: `1px solid ${colors.border}`,
-                      background: p.sameAssignee ? "#E8F7F0" : "#FFF6E5",
-                      fontSize: 12,
-                    }}
-                  >
-                    <strong style={{ color: colors.navy }}>{p.name}</strong>
-                    <span
-                      style={{
-                        fontSize: 10.5,
-                        fontWeight: 800,
-                        borderRadius: 999,
-                        padding: "2px 8px",
-                        color: p.sameAssignee ? "#0F8A5F" : "#B54708",
-                        background: colors.white,
-                      }}
-                    >
-                      {p.sameAssignee ? "Original assignee" : `New assignee${p.department ? ` · ${p.department}` : ""}`}
-                    </span>
-                    <span style={{ marginLeft: "auto", color: colors.muted }}>
-                      Task ID <b style={{ color: colors.oceanDark }}>#{p.referenceId}</b>
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* live workload of each selected person */}
-            <EmployeeWorkload userIds={assignedUsers} nameOf={userNameById} />
-          </div>
-
-          {isMonthly && (
-            <MonthlyTaskFields value={monthlyConfig} onChange={setMonthlyConfig} isEdit={isEdit} />
-          )}
-
-          {/* DESCRIPTION */}
-
-          <div style={styles.field}>
-            <label
-              style={styles.label}
-            >
-              Description
-            </label>
-
-            <textarea
-              value={description}
-              onChange={(e) =>
-                setDescription(
-                  e.target.value
-                )
-              }
-              placeholder="Describe what needs to be completed..."
-              style={
-                styles.textarea
-              }
-              rows={4}
-            />
-          </div>
-
-          {/* START → END (standard / rework tasks): Start Date | Start Time, End Date | End Time */}
-
-          {!isMonthly && (
-            <div style={styles.formGridTwo}>
-              <div style={styles.field}>
-                <label style={styles.label}>
-                  Start Date {!isEdit && <span style={styles.requiredStar}>*</span>}
-                </label>
-                <div style={styles.inputIconWrapper}>
-                  <input
-                    type="date"
-                    value={startDate}
-                    max={dueDate || undefined}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    style={styles.inputWithIcon}
-                  />
-                  <CalendarDays size={16} style={styles.fieldIcon} />
-                </div>
-              </div>
-
-              <div style={styles.field}>
-                <label style={styles.label}>Start Time</label>
-                <input
-                  type="time"
-                  value={startTime}
-                  onChange={(e) => setStartTime(e.target.value)}
-                  aria-label="Start time"
-                  style={styles.input}
-                />
-              </div>
-
-              <div style={styles.field}>
-                <label style={styles.label}>
-                  End Date <span style={styles.requiredStar}>*</span>
-                </label>
-                <div style={styles.inputIconWrapper}>
-                  <input
-                    type="date"
-                    value={dueDate}
-                    min={startDate || undefined}
-                    onChange={(e) => setDueDate(e.target.value)}
-                    style={styles.inputWithIcon}
-                  />
-                  <CalendarDays size={16} style={styles.fieldIcon} />
-                </div>
-              </div>
-
-              <div style={styles.field}>
-                <label style={styles.label}>End Time</label>
-                <input
-                  type="time"
-                  value={dueTime}
-                  onChange={(e) => setDueTime(e.target.value)}
-                  aria-label="End time"
-                  style={styles.input}
-                />
-              </div>
+              <span className="tc-hint">The first department gives the task its Reference ID.</span>
             </div>
           )}
 
-          {/* PRIORITY */}
+          <input
+            className="tc-title"
+            value={taskName}
+            onChange={(e) => setTaskName(e.target.value)}
+            placeholder="Task name"
+            aria-label="Task name"
+            autoFocus
+          />
 
-          <div>
-            <div style={styles.field}>
-              <label
-                style={styles.label}
-              >
-                Priority
-              </label>
+          <textarea
+            className="tc-desc"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Add a description — what does “done” look like?"
+            aria-label="Description"
+            rows={3}
+          />
 
-              <div
-                style={
-                  styles.priorityGroup
-                }
-              >
-                {Object.keys(
-                  priorityConfig
-                ).map((item) => {
-                  const config =
-                    priorityConfig[
-                      item
-                    ];
-
-                  const Icon =
-                    config.icon;
-
-                  const active =
-                    priority === item;
-
-                  return (
-                    <button
-                      key={item}
-                      type="button"
-                      onClick={() =>
-                        setPriority(
-                          item
-                        )
-                      }
-                      style={{
-                        ...styles.priorityButton,
-                        background:
-                          active
-                            ? config.background
-                            : colors.white,
-                        color: active
-                          ? config.color
-                          : colors.muted,
-                        borderColor:
-                          active
-                            ? config.color
-                            : colors.border,
-                        fontWeight:
-                          active
-                            ? 750
-                            : 500,
-                      }}
-                    >
-                      <Icon
-                        size={13}
-                      />
-
-                      {item}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-
-          {/* LENGTH + REMINDER */}
-
-          {(() => {
-            const length = !isMonthly ? taskDuration(startDate, startTime, dueDate, dueTime) : null;
-            return (
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                {length && (
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      flexWrap: "wrap",
-                      gap: 8,
-                      padding: "10px 12px",
-                      borderRadius: 12,
-                      background: colors.oceanSoft,
-                      border: `1px solid ${colors.ocean}44`,
-                      fontSize: 12.5,
-                      color: colors.text,
-                    }}
-                  >
-                    <Clock3 size={15} color={colors.oceanDark} />
-                    <strong style={{ color: colors.navy }}>Task length: {length.label}</strong>
-                    <span style={{ color: colors.muted }}>{length.range}</span>
-                  </div>
-                )}
-
-                <div style={styles.field}>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-                    <label style={{ ...styles.label, margin: 0 }} htmlFor="task-reminder-switch">Reminder</label>
-                    <button
-                      id="task-reminder-switch"
-                      type="button"
-                      role="switch"
-                      aria-checked={reminderOn}
-                      onClick={() => {
-                        const next = !reminderOn;
-                        setReminderOn(next);
-                        // suggest the start time (or the end) when switching on
-                        if (next && !reminders[0]?.customAt) {
-                          const at = startDate ? `${startDate}T${startTime || "09:00"}` : dueDate ? `${dueDate}T${dueTime || "09:00"}` : "";
-                          setReminders((list) => [{ ...(list[0] || {}), customAt: at }, ...list.slice(1)]);
-                        }
-                      }}
-                      style={{
-                        position: "relative",
-                        width: 42,
-                        height: 24,
-                        borderRadius: 999,
-                        border: 0,
-                        cursor: "pointer",
-                        background: reminderOn ? colors.ocean : colors.border,
-                        transition: "background .2s",
-                        flexShrink: 0,
-                      }}
-                    >
-                      <span
-                        style={{
-                          position: "absolute",
-                          top: 3,
-                          left: reminderOn ? 21 : 3,
-                          width: 18,
-                          height: 18,
-                          borderRadius: "50%",
-                          background: colors.white,
-                          boxShadow: "0 1px 3px rgba(0,0,0,.25)",
-                          transition: "left .2s",
-                        }}
-                      />
-                    </button>
-                  </div>
-                  {reminderOn && (
-                    <>
-                      <input
-                        type="datetime-local"
-                        value={reminders[0]?.customAt || ""}
-                        onChange={(e) => setReminders((list) => [{ ...(list[0] || {}), customAt: e.target.value }, ...list.slice(1)])}
-                        aria-label="Reminder date and time"
-                        style={styles.input}
-                      />
-                      <span style={{ fontSize: 10.5, color: colors.muted }}>
-                        {reminders[0]?.sentAt
-                          ? "This reminder was sent. Pick a new time to send it again."
-                          : "The assigned person is reminded about this task at this time (notification, and email if they allow it)."}
-                      </span>
-                    </>
-                  )}
-                </div>
-              </div>
-            );
-          })()}
-
-          {/* REWARD */}
-
-          <div
-            style={
-              styles.rewardCard
-            }
-          >
-            <div
-              style={
-                styles.rewardLeft
-              }
-            >
-              <div
-                style={
-                  styles.rewardIcon
-                }
-              >
-                <Award size={16} />
-              </div>
-
-              <span>
-                Completion reward
-              </span>
-            </div>
-
-            <strong title="When approving the task, the assigner gives a score 1–10 — that becomes the assignee's points">
-              Score 1–10 on approval
-              <span style={{ display: "block", fontSize: 10, fontWeight: 600, opacity: 0.75 }}>
-                given by the assigner · added to the score
-              </span>
-            </strong>
-          </div>
-
-          {/* ATTACHMENTS — below the Task Score section */}
-
-          <div
-            style={
-              styles.expandCard
-            }
-          >
+          {/* PROPERTY CHIPS */}
+          <div className="tc-row">
+            <span className="tc-chip tc-status" title="New tasks start in To Do">
+              <Circle size={10} fill="currentColor" />
+              {statusLabel}
+            </span>
+            {chip("assignee", UserRound, assigneeLabel, { empty: missing.assignee, required: missing.assignee })}
+            {!isMonthly && chip("dates", CalendarDays, datesLabel, { empty: !startDate && !dueDate, required: missing.dates })}
+            {chip("priority", PriorityIcon, priority, {
+              style: { color: priorityConfig[priority]?.color, background: priorityConfig[priority]?.background },
+            })}
+            {chip("reminder", Bell, reminderLabel, { empty: !reminderOn })}
             <button
               type="button"
-              onClick={() =>
-                setShowAttachments(
-                  !showAttachments
-                )
-              }
-              style={
-                styles.expandButton
-              }
+              className={`tc-chip tc-more${fieldMenuOpen ? " on" : ""}`}
+              onClick={() => {
+                setOpenPanel(null);
+                if (fieldMenuOpen) closeFieldMenu();
+                else setFieldMenuOpen(true);
+              }}
+              aria-label="Create new field"
+              title="Add a field"
             >
-              <div
-                style={
-                  styles.expandTitle
-                }
-              >
-                <Paperclip size={17} />
+              ⋯
+            </button>
+          </div>
 
-                <div
-                  style={
-                    styles.expandTitleText
-                  }
-                >
-                  <strong
-                    style={
-                      styles.expandTitleMain
-                    }
-                  >
-                    Attachments
-                  </strong>
-
-                  <span
-                    style={
-                      styles.expandTitleSub
-                    }
-                  >
-                    Files are uploaded when you save the task
-                  </span>
+          {/* PANELS (one open at a time) */}
+          {openPanel === "assignee" && (
+            <div className="tc-panel">
+              {panelHead(isEdit ? "Reassign task" : "Assign task")}
+              <UserMultiSelect
+                users={availableUsers}
+                selected={assignedUsers}
+                selectedDepartments={selectedDepartments}
+                onChange={(selected) => {
+                  setAssignedUsers(selected);
+                  setAssignedUser(selected[0] || "");
+                }}
+              />
+              <AssignByEmail
+                users={users}
+                onAdd={(id) => {
+                  const next = assignedUsers.includes(id) ? assignedUsers : [...assignedUsers, id];
+                  setAssignedUsers(next);
+                  setAssignedUser(next[0] || "");
+                }}
+              />
+              {assignedUsers.length > 0 && (
+                <div className="tc-pills">
+                  {assignedUsers.map((id) => (
+                    <span key={id} className="tc-pill">
+                      <span className="tc-avatar">{String(userNameById(id)).charAt(0).toUpperCase()}</span>
+                      {userNameById(id)}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const next = assignedUsers.filter((item) => item !== id);
+                          setAssignedUsers(next);
+                          setAssignedUser(next[0] || "");
+                        }}
+                        aria-label={`Remove ${userNameById(id)}`}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
                 </div>
+              )}
+              {isRework && reworkPreview.length > 0 && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {reworkPreview.map((p) => (
+                    <div key={p.userId} className={`tc-rework-row${p.sameAssignee ? " same" : ""}`}>
+                      <strong>{p.name}</strong>
+                      <span className="tc-rework-tag">
+                        {p.sameAssignee ? "Original assignee" : `New assignee${p.department ? ` · ${p.department}` : ""}`}
+                      </span>
+                      <span style={{ marginLeft: "auto" }}>
+                        Task ID <b>#{p.referenceId}</b>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {openPanel === "dates" && !isMonthly && (
+            <div className="tc-panel">
+              {panelHead("Start → End")}
+              <div className="tc-grid">
+                <label className="tc-mini">
+                  <span>Start date{!isEdit && " *"}</span>
+                  <input type="date" value={startDate} max={dueDate || undefined} onChange={(e) => setStartDate(e.target.value)} style={styles.input} />
+                </label>
+                <label className="tc-mini">
+                  <span>Start time</span>
+                  <input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} style={styles.input} />
+                </label>
+                <label className="tc-mini">
+                  <span>End date *</span>
+                  <input type="date" value={dueDate} min={startDate || undefined} onChange={(e) => setDueDate(e.target.value)} style={styles.input} />
+                </label>
+                <label className="tc-mini">
+                  <span>End time</span>
+                  <input type="time" value={dueTime} onChange={(e) => setDueTime(e.target.value)} style={styles.input} />
+                </label>
               </div>
+              {length && (
+                <div className="tc-length">
+                  <Clock3 size={14} />
+                  <strong>{length.label}</strong>
+                  <span>{length.range}</span>
+                </div>
+              )}
+            </div>
+          )}
 
-              <div
-                style={
-                  styles.expandRight
-                }
-              >
-                <span
-                  style={
-                    styles.countBadge
-                  }
+          {openPanel === "priority" && (
+            <div className="tc-panel tc-panel-narrow">
+              {panelHead("Priority")}
+              {Object.keys(priorityConfig).map((item) => {
+                const config = priorityConfig[item];
+                const Icon = config.icon;
+                return (
+                  <button
+                    key={item}
+                    type="button"
+                    className={`tc-menu-item${priority === item ? " on" : ""}`}
+                    onClick={() => {
+                      setPriority(item);
+                      setOpenPanel(null);
+                    }}
+                  >
+                    <span className="tc-menu-icon" style={{ color: config.color, background: config.background }}>
+                      <Icon size={13} />
+                    </span>
+                    {item}
+                    {priority === item && <small>Selected</small>}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {openPanel === "reminder" && (
+            <div className="tc-panel">
+              <div className="tc-panel-head">
+                <span>Reminder</span>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={reminderOn}
+                  aria-label="Reminder on or off"
+                  className={`tc-switch${reminderOn ? " on" : ""}`}
+                  onClick={() => {
+                    const next = !reminderOn;
+                    setReminderOn(next);
+                    // suggest the start time (or the end) when switching on
+                    if (next && !reminders[0]?.customAt) {
+                      const at = startDate ? `${startDate}T${startTime || "09:00"}` : dueDate ? `${dueDate}T${dueTime || "09:00"}` : "";
+                      setReminders((list) => [{ ...(list[0] || {}), customAt: at }, ...list.slice(1)]);
+                    }
+                  }}
                 >
-                  {attachments.length} files
-                </span>
+                  <span />
+                </button>
+              </div>
+              {reminderOn ? (
+                <>
+                  <input
+                    type="datetime-local"
+                    value={reminders[0]?.customAt || ""}
+                    onChange={(e) => setReminders((list) => [{ ...(list[0] || {}), customAt: e.target.value }, ...list.slice(1)])}
+                    aria-label="Reminder date and time"
+                    style={styles.input}
+                  />
+                  <span className="tc-hint">
+                    {reminders[0]?.sentAt
+                      ? "This reminder was sent. Pick a new time to send it again."
+                      : "The assigned person is reminded at this time (notification, and email if they allow it)."}
+                  </span>
+                </>
+              ) : (
+                <span className="tc-hint">Switch on to remind the assignee at a time you choose.</span>
+              )}
+            </div>
+          )}
 
-                {showAttachments ? (
-                  <ChevronUp size={17} />
+          {/* TYPE-SPECIFIC BLOCKS (always shown for that type) */}
+          {isRework && (
+            <div className="tc-field">
+              <div className="tc-field-head">
+                <RotateCcw size={15} />
+                Original task <span className="tc-req">*</span>
+              </div>
+              <div className="tc-field-body">
+                {isEdit ? (
+                  <div style={{ ...styles.input, display: "flex", alignItems: "center", background: colors.background }}>
+                    {reworkRef ? `#${reworkRef.referenceId} — ${reworkRef.name}` : "No original task"}
+                  </div>
                 ) : (
-                  <ChevronDown size={17} />
+                  <ReworkReferencePicker value={reworkRef} onChange={handleReworkPick} required inputStyle={styles.input} />
                 )}
               </div>
-            </button>
+            </div>
+          )}
 
-            {showAttachments && (
-              <div
-                style={
-                  styles.expandedContent
-                }
-              >
+          {isMonthly && (
+            <div className="tc-field">
+              <div className="tc-field-head">
+                <Target size={15} />
+                Monthly target
+              </div>
+              <div className="tc-field-body">
+                <MonthlyTaskFields value={monthlyConfig} onChange={setMonthlyConfig} isEdit={isEdit} />
+              </div>
+            </div>
+          )}
+
+          {/* TEAM WORKLOAD — always shown once someone is assigned (as in the old form) */}
+          {assignedUsers.length > 0 && <EmployeeWorkload userIds={assignedUsers} nameOf={userNameById} />}
+
+          {/* FIELDS */}
+          <div className="tc-section-label">Fields</div>
+
+          {/* CHECKLIST */}
+          <div className="tc-field">
+            <button type="button" className="tc-field-head tc-field-toggle" onClick={() => toggleFieldCard("checklist")} aria-expanded={openFields.checklist}>
+              <ListChecks size={15} />
+              Checklist
+              <span className="tc-count">{checklist.length} rows</span>
+              {openFields.checklist ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+            </button>
+            {openFields.checklist && (
+              <div className="tc-field-body">
+                <ChecklistEditor value={checklist} onChange={setChecklist} users={availableUsers} />
+              </div>
+            )}
+          </div>
+
+          {/* ATTACHMENTS */}
+          <div className="tc-field">
+            <button type="button" className="tc-field-head tc-field-toggle" onClick={() => toggleFieldCard("attachments")} aria-expanded={openFields.attachments}>
+              <Paperclip size={15} />
+              Attachments
+              <span className="tc-count">{attachments.length} files · uploaded when you save</span>
+              {openFields.attachments ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+            </button>
+            {openFields.attachments && (
+              <div className="tc-field-body">
                 <label
-                  style={{
-                    ...styles.uploadBox,
-                    ...(dragActive
-                      ? {
-                          borderColor: colors.ocean,
-                          background: "#E8F7F8",
-                          transform: "scale(1.01)",
-                        }
-                      : {}),
-                    transition: "all .18s ease",
-                    opacity: submitting ? 0.6 : 1,
-                    cursor: submitting ? "wait" : "pointer",
-                  }}
+                  className={`tc-drop${dragActive ? " active" : ""}`}
+                  style={{ opacity: submitting ? 0.6 : 1, cursor: submitting ? "wait" : "pointer" }}
                   onDragOver={(event) => {
                     event.preventDefault();
                     setDragActive(true);
@@ -5230,19 +5425,11 @@ const TaskFormModal = ({
                   onDragLeave={() => setDragActive(false)}
                   onDrop={handleDrop}
                 >
-                  <UploadCloud size={24} />
-
-                  <strong>
-                    {dragActive
-                      ? "Drop files to attach"
-                      : "Click to upload or drag & drop"}
-                  </strong>
-
-                  <span style={{ fontSize: 10, color: "#7893A3" }}>
-                    PDF, Word, Excel, PowerPoint, CSV, TXT, ZIP, images · max 8 MB each · up to {MAX_ATTACHMENTS} files
-                  </span>
-
+                  <UploadCloud size={20} />
+                  <strong>{dragActive ? "Drop files to attach" : "Click to upload or drag & drop"}</strong>
+                  <span>PDF, Word, Excel, PowerPoint, CSV, TXT, ZIP, images · max 8 MB each · up to {MAX_ATTACHMENTS} files</span>
                   <input
+                    ref={fileInputRef}
                     type="file"
                     multiple
                     disabled={submitting}
@@ -5251,380 +5438,279 @@ const TaskFormModal = ({
                     hidden
                   />
                 </label>
-
-                {attachments.length >
-                  0 && (
-                  <div
-                    style={
-                      styles.fileList
-                    }
-                  >
-                    {attachments.map(
-                      (file, index) => (
-                        <div
-                          key={`${file.filename || file.name}-${index}`}
-                          style={
-                            styles.fileItem
-                          }
-                        >
-                          <FileText
-                            size={15}
-                          />
-
-                          <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 3 }}>
-                            <span style={styles.fileName}>
-                              {file.name}
-                            </span>
-                            <span style={{ fontSize: 10, color: colors.muted, fontWeight: 500 }}>
-                              {[
-                                formatFileSize(file.size),
-                                fileExtension(file.name).toUpperCase(),
-                                file.existing ? "Saved" : "New — uploads on save",
-                              ]
-                                .filter(Boolean)
-                                .join(" · ")}
-                            </span>
-                          </div>
-
-                          {file.existing && file.downloadable && (
-                            <button
-                              type="button"
-                              title="Download"
-                              onClick={() =>
-                                downloadAttachment(file).catch(() =>
-                                  setError(`Could not download ${file.name}.`)
-                                )
-                              }
-                              style={{
-                                ...styles.smallDelete,
-                                color: colors.ocean,
-                              }}
-                            >
-                              <Download size={14} />
-                            </button>
-                          )}
-
-                          <button
-                            type="button"
-                            title="Remove"
-                            disabled={submitting}
-                            onClick={() =>
-                              removeAttachment(
-                                file
-                              )
-                            }
-                            style={
-                              styles.smallDelete
-                            }
-                          >
-                            <Trash2
-                              size={14}
-                            />
-                          </button>
-                        </div>
-                      )
+                {attachments.map((file, index) => (
+                  <div key={`${file.filename || file.name}-${index}`} className="tc-line">
+                    <FileText size={14} />
+                    <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 2 }}>
+                      <span className="tc-line-text">{file.name}</span>
+                      <span className="tc-hint">
+                        {[formatFileSize(file.size), fileExtension(file.name).toUpperCase(), file.existing ? "Saved" : "New — uploads on save"]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </span>
+                    </div>
+                    {file.existing && file.downloadable && (
+                      <button
+                        type="button"
+                        className="tc-line-x"
+                        title="Download"
+                        style={{ color: colors.ocean }}
+                        onClick={() => downloadAttachment(file).catch(() => setError(`Could not download ${file.name}.`))}
+                      >
+                        <Download size={13} />
+                      </button>
                     )}
+                    <button type="button" className="tc-line-x" title="Remove" disabled={submitting} onClick={() => removeAttachment(file)}>
+                      <Trash2 size={13} />
+                    </button>
                   </div>
-                )}
+                ))}
               </div>
             )}
           </div>
 
-          {/* RECURRING — commented out (hidden) for now; set SHOW_RECURRING_OPTION = true to bring it back */}
-
-          {SHOW_RECURRING_OPTION && !isMonthly && (
-          <>
-
-
-          <div
-            style={
-              styles.expandCard
-            }
-          >
-            <div
-              style={
-                styles.expandHeader
-              }
-            >
-              <div
-                style={
-                  styles.expandTitle
-                }
-              >
-                <RotateCcw
-                  size={17}
-                />
-
-                <div
-                  style={
-                    styles.expandTitleText
-                  }
-                >
-                  <strong
-                    style={
-                      styles.expandTitleMain
-                    }
-                  >
-                    Make this task recurring
-                  </strong>
-
-                  <span
-                    style={
-                      styles.expandTitleSub
-                    }
-                  >
-                    Automatically repeat this task
-                  </span>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={() =>
-                  setRecurring(
-                    !recurring
-                  )
-                }
-                style={{
-                  ...styles.toggle,
-                  background:
-                    recurring
-                      ? colors.ocean
-                      : "#CFDEE8",
-                }}
-              >
-                <span
-                  style={{
-                    ...styles.toggleCircle,
-                    transform:
-                      recurring
-                        ? "translateX(20px)"
-                        : "translateX(0)",
-                  }}
-                />
-              </button>
-            </div>
-
-            {recurring && (
-              <div
-                style={
-                  styles.recurringBox
-                }
-              >
-                <select
-                  value={
-                    recurrenceInterval
-                  }
-                  onChange={(e) =>
-                    setRecurrenceInterval(
-                      e.target.value
-                    )
-                  }
-                  style={styles.input}
-                >
-                  <option>
-                    Every day
-                  </option>
-
-                  <option>
-                    Every week
-                  </option>
-
-                  <option>
-                    Every month
-                  </option>
-                </select>
-              </div>
-            )}
-          </div>
-          </>
-          )}
-
-          {/* CHECKLIST */}
-
-          <div style={styles.field}>
-            <label style={styles.label}>Add Checklist Details</label>
-            <ChecklistEditor value={checklist} onChange={setChecklist} users={availableUsers} />
-          </div>
-
-          {/* SUBTASKS */}
-
-          <div
-            style={
-              styles.expandCard
-            }
-          >
-            <button
-              type="button"
-              onClick={() =>
-                setShowSubtasks(
-                  !showSubtasks
-                )
-              }
-              style={
-                styles.expandButton
-              }
-            >
-              <div
-                style={
-                  styles.expandTitle
-                }
-              >
-                <ListChecks
-                  size={17}
-                />
-
-                <div
-                  style={
-                    styles.expandTitleText
-                  }
-                >
-                  <strong
-                    style={
-                      styles.expandTitleMain
-                    }
-                  >
-                    Sub-tasks
-                  </strong>
-
-                  <span
-                    style={
-                      styles.expandTitleSub
-                    }
-                  >
-                    Break this task into smaller steps
-                  </span>
-                </div>
-              </div>
-
-              <div
-                style={
-                  styles.expandRight
-                }
-              >
-                <span
-                  style={
-                    styles.countBadge
-                  }
-                >
-                  {subtasks.length} sub-tasks
-                </span>
-
-                {showSubtasks ? (
-                  <ChevronUp size={17} />
-                ) : (
-                  <ChevronDown
-                    size={17}
-                  />
-                )}
-              </div>
+          {/* SUB-TASKS */}
+          <div className="tc-field">
+            <button type="button" className="tc-field-head tc-field-toggle" onClick={() => toggleFieldCard("subtasks")} aria-expanded={openFields.subtasks}>
+              <Rows3 size={15} />
+              Sub-tasks
+              <span className="tc-count">{subtasks.length} steps</span>
+              {openFields.subtasks ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
             </button>
-
-            {showSubtasks && (
-              <div
-                style={
-                  styles.expandedContent
-                }
-              >
-                <div
-                  style={
-                    styles.subtaskInputRow
-                  }
-                >
+            {openFields.subtasks && (
+              <div className="tc-field-body">
+                <div style={{ display: "flex", gap: 8 }}>
                   <input
                     value={subtaskInput}
-                    onChange={(e) =>
-                      setSubtaskInput(
-                        e.target.value
-                      )
-                    }
+                    onChange={(e) => setSubtaskInput(e.target.value)}
                     onKeyDown={(e) => {
-                      if (
-                        e.key ===
-                        "Enter"
-                      ) {
+                      if (e.key === "Enter") {
                         e.preventDefault();
                         addSubtask();
                       }
                     }}
-                    placeholder="Enter sub-task"
-                    style={{
-                      ...styles.input,
-                      flex: 1,
-                    }}
+                    placeholder="Add a step and press Enter"
+                    style={{ ...styles.input, flex: 1 }}
                   />
-
-                  <button
-                    type="button"
-                    onClick={
-                      addSubtask
-                    }
-                    style={
-                      styles.addSubtaskButton
-                    }
-                  >
-                    <Plus size={15} />
-                    Add
+                  <button type="button" className="tc-soft-btn" onClick={addSubtask}>
+                    <Plus size={14} /> Add
                   </button>
                 </div>
+                {subtasks.map((item, index) => (
+                  <div key={item.id} className="tc-line">
+                    <span className="tc-line-num">{index + 1}</span>
+                    <span className="tc-line-text">{item.title}</span>
+                    <button type="button" className="tc-line-x" onClick={() => removeSubtask(item.id)} aria-label="Remove sub-task">
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
 
-                {subtasks.length >
-                  0 && (
-                  <div
-                    style={
-                      styles.subtaskList
-                    }
-                  >
-                    {subtasks.map(
-                      (
-                        item,
-                        index
-                      ) => (
-                        <div
-                          key={
-                            item.id
-                          }
-                          style={
-                            styles.subtaskItem
-                          }
-                        >
-                          <span
-                            style={
-                              styles.subtaskNumber
-                            }
-                          >
-                            {index + 1}
+          {/* RECURRING — hidden while SHOW_RECURRING_OPTION is false (same as the old form) */}
+          {SHOW_RECURRING_OPTION && !isMonthly && (
+            <div className="tc-field">
+              <div className="tc-field-head">
+                <RefreshCw size={15} />
+                Make this task recurring
+                <span className="tc-count" />
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={recurring}
+                  aria-label="Recurring on or off"
+                  className={`tc-switch${recurring ? " on" : ""}`}
+                  onClick={() => setRecurring(!recurring)}
+                >
+                  <span />
+                </button>
+              </div>
+              {recurring && (
+                <div className="tc-field-body">
+                  <select value={recurrenceInterval} onChange={(e) => setRecurrenceInterval(e.target.value)} style={styles.input}>
+                    <option>Every day</option>
+                    <option>Every week</option>
+                    <option>Every month</option>
+                  </select>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* CUSTOM FIELDS */}
+          {customFields.map((field) => {
+            const meta = CF_TYPES[field.type] || CF_TYPES.text;
+            const FieldIcon = meta.icon;
+            return (
+              <div key={field.key} className="tc-field tc-custom">
+                <div className="tc-field-head">
+                  <span className="tc-menu-icon">
+                    <FieldIcon size={13} />
+                  </span>
+                  <input
+                    className="tc-field-name"
+                    value={field.label}
+                    onChange={(e) => updateCustomField(field.key, { label: e.target.value.slice(0, 60) })}
+                    placeholder="Field name"
+                    aria-label="Field name"
+                  />
+                  <span className="tc-type-tag">{meta.label}</span>
+                  <button type="button" className="tc-field-x" title="Remove field" onClick={() => removeCustomField(field.key)} aria-label={`Remove ${field.label}`}>
+                    <X size={13} />
+                  </button>
+                </div>
+                <div className="tc-field-body">
+                  <CustomFieldInput field={field} onChange={(value) => updateCustomField(field.key, { value })} />
+                </div>
+              </div>
+            );
+          })}
+
+          {/* + CREATE NEW FIELD */}
+          <div className="tc-add-wrap">
+            <button
+              type="button"
+              className={`tc-add-field${fieldMenuOpen ? " on" : ""}`}
+              onClick={() => {
+                setOpenPanel(null);
+                if (fieldMenuOpen) closeFieldMenu();
+                else setFieldMenuOpen(true);
+              }}
+            >
+              <Plus size={14} /> Create new field
+            </button>
+
+            {fieldMenuOpen && (
+              <div className="tc-panel tc-field-menu">
+                {fieldDraft ? (
+                  /* step 2 — name the field (and its choices) */
+                  (() => {
+                    const meta = CF_TYPES[fieldDraft.type];
+                    const DraftIcon = meta.icon;
+                    const optionList = fieldDraft.options
+                      .split(",")
+                      .map((o) => o.trim())
+                      .filter(Boolean);
+                    const ready = fieldDraft.label.trim() && (!meta.needsOptions || optionList.length > 0);
+                    const submitDraft = () =>
+                      ready && addCustomField({ label: fieldDraft.label, type: fieldDraft.type, options: meta.needsOptions ? optionList : [] });
+                    return (
+                      <>
+                        <div className="tc-panel-head">
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                            <DraftIcon size={13} /> New {meta.label.toLowerCase()} field
                           </span>
-
-                          <span
-                            style={
-                              styles.subtaskTitle
-                            }
-                          >
-                            {
-                              item.title
-                            }
-                          </span>
-
-                          <button
-                            type="button"
-                            onClick={() =>
-                              removeSubtask(
-                                item.id
-                              )
-                            }
-                            style={
-                              styles.smallDelete
-                            }
-                          >
-                            <Trash2
-                              size={14}
-                            />
+                          <button type="button" className="tc-done" onClick={() => setFieldDraft(null)}>
+                            Back
                           </button>
                         </div>
-                      )
+                        <label className="tc-mini">
+                          <span>Field name</span>
+                          <input
+                            autoFocus
+                            value={fieldDraft.label}
+                            maxLength={60}
+                            onChange={(e) => setFieldDraft((d) => ({ ...d, label: e.target.value }))}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                submitDraft();
+                              }
+                            }}
+                            placeholder="e.g. Client name"
+                            style={styles.input}
+                          />
+                        </label>
+                        {meta.needsOptions && (
+                          <label className="tc-mini">
+                            <span>Choices (separate with commas)</span>
+                            <input
+                              value={fieldDraft.options}
+                              onChange={(e) => setFieldDraft((d) => ({ ...d, options: e.target.value }))}
+                              placeholder="e.g. Planning, In progress, Done"
+                              style={styles.input}
+                            />
+                          </label>
+                        )}
+                        <button type="button" className="tc-primary" style={{ alignSelf: "flex-end", opacity: ready ? 1 : 0.5 }} disabled={!ready} onClick={submitDraft}>
+                          <Plus size={14} /> Add field
+                        </button>
+                      </>
+                    );
+                  })()
+                ) : (
+                  /* step 1 — pick a ready-made task field or a field type */
+                  <>
+                    <div className="tc-search">
+                      <Search size={14} />
+                      <input
+                        autoFocus
+                        value={fieldQuery}
+                        onChange={(e) => setFieldQuery(e.target.value)}
+                        placeholder="Search fields…"
+                        aria-label="Search fields"
+                      />
+                    </div>
+
+                    {customFields.length >= MAX_CUSTOM_FIELDS && (
+                      <span className="tc-hint">You can add up to {MAX_CUSTOM_FIELDS} custom fields.</span>
                     )}
-                  </div>
+
+                    {presetMatches.length > 0 && (
+                      <div className="tc-menu-group">
+                        <div className="tc-section-label">
+                          <Sparkles size={11} /> Task-ready fields
+                        </div>
+                        {presetMatches.map((preset) => {
+                          const PIcon = preset.icon;
+                          const added = usedLabels.has(preset.label.toLowerCase());
+                          return (
+                            <button
+                              key={preset.label}
+                              type="button"
+                              className="tc-menu-item"
+                              disabled={added || customFields.length >= MAX_CUSTOM_FIELDS}
+                              onClick={() => addCustomField(preset)}
+                            >
+                              <span className="tc-menu-icon tc-menu-icon-accent">
+                                <PIcon size={13} />
+                              </span>
+                              {preset.label}
+                              <small>{added ? "Added" : preset.hint || CF_TYPES[preset.type].label}</small>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {typeMatches.length > 0 && (
+                      <div className="tc-menu-group">
+                        <div className="tc-section-label">All field types</div>
+                        {typeMatches.map(([type, meta]) => {
+                          const TIcon = meta.icon;
+                          return (
+                            <button
+                              key={type}
+                              type="button"
+                              className="tc-menu-item"
+                              disabled={customFields.length >= MAX_CUSTOM_FIELDS}
+                              onClick={() => setFieldDraft({ type, label: "", options: "" })}
+                            >
+                              <span className="tc-menu-icon">
+                                <TIcon size={13} />
+                              </span>
+                              {meta.label}
+                              <small>{meta.hint}</small>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {!presetMatches.length && !typeMatches.length && <span className="tc-hint">No field matches “{fieldQuery}”.</span>}
+                  </>
                 )}
               </div>
             )}
@@ -5632,82 +5718,69 @@ const TaskFormModal = ({
         </div>
 
         {/* ERROR */}
-
         {error && (
-          <div
-            style={
-              styles.modalError
-            }
-          >
-            <AlertTriangle
-              size={15}
-            />
-
+          <div style={{ ...styles.modalError, margin: "0 22px 10px" }} role="alert">
+            <AlertTriangle size={15} />
             <span>{error}</span>
           </div>
         )}
 
         {/* FOOTER */}
+        <div className="tc-foot">
+          <span className="tc-reward" title="When approving the task, the assigner gives a score 1–10 — that becomes the assignee's points">
+            <Award size={14} /> Score 1–10 on approval
+          </span>
 
-        <div
-          style={
-            styles.modalFooter
-          }
-        >
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={submitting}
-            style={
-              styles.cancelButton
-            }
-          >
-            Cancel
-          </button>
+          <div className="tc-foot-right">
+            <button
+              type="button"
+              className="tc-icon-btn tc-foot-icon"
+              title="Attach files"
+              aria-label="Attach files"
+              disabled={submitting}
+              onClick={() => {
+                setOpenFields((o) => ({ ...o, attachments: true }));
+                setTimeout(() => fileInputRef.current?.click(), 0);
+              }}
+            >
+              <Paperclip size={15} />
+              {attachments.length > 0 && <em>{attachments.length}</em>}
+            </button>
+            <button
+              type="button"
+              className="tc-icon-btn tc-foot-icon"
+              title="Reminder"
+              aria-label="Reminder"
+              onClick={() => togglePanel("reminder")}
+            >
+              <Bell size={15} />
+              {reminderOn && <em>1</em>}
+            </button>
 
-          <button
-            type="button"
-            onClick={handleSubmit}
-            disabled={submitting}
-            style={{
-              ...styles.createButton,
-              opacity:
-                submitting
-                  ? 0.65
-                  : 1,
-              cursor:
-                submitting
-                  ? "not-allowed"
-                  : "pointer",
-            }}
-          >
-            {submitting ? (
-              <>
-                <Loader2
-                  size={16}
-                  style={
-                    styles.spinner
-                  }
-                />
+            <button type="button" className="tc-ghost" onClick={onClose} disabled={submitting}>
+              Cancel
+            </button>
 
-                {uploadedFiles.length
-                  ? `Uploading ${uploadedFiles.length} file${uploadedFiles.length === 1 ? "" : "s"}...`
-                  : "Saving..."}
-              </>
-            ) : (
-              <>
-                {isEdit ? (
-                  <Pencil size={16} />
-                ) : (
-                  <Plus size={16} />
-                )}
-
-                {isEdit
-                  ? "Save Changes"
-                  : "Assign Task"}
-              </>
-            )}
-          </button>
+            <button
+              type="button"
+              className="tc-primary"
+              onClick={handleSubmit}
+              disabled={submitting}
+              style={{ opacity: submitting ? 0.65 : 1, cursor: submitting ? "not-allowed" : "pointer" }}
+            >
+              {submitting ? (
+                <>
+                  <Loader2 size={15} style={styles.spinner} />
+                  {uploadedFiles.length ? `Uploading ${uploadedFiles.length} file${uploadedFiles.length === 1 ? "" : "s"}...` : "Saving..."}
+                </>
+              ) : (
+                <>
+                  {isEdit ? <Pencil size={15} /> : <Plus size={15} />}
+                  {isEdit ? "Save Changes" : "Assign Task"}
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -8821,6 +8894,12 @@ const TaskCard = ({
       {!task.isGroup && (
         <div style={{ padding: "0 16px 12px" }}>
           <TaskComments task={task} onChanged={onSubtasksChanged} />
+        </div>
+      )}
+
+      {!task.isGroup && task.customFields?.length > 0 && (
+        <div style={{ padding: "0 16px 10px" }}>
+          <CustomFieldsView fields={task.customFields} />
         </div>
       )}
 

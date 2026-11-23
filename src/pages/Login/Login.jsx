@@ -15,6 +15,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import API, { wakeServer, describeRequestError } from "../../api/config";
 import { homePathFor } from "../../services/permissions";
+import { postLogin } from "../../services/loginCrypto";
 
 const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
@@ -102,10 +103,8 @@ const Login = () => {
 
     try {
       // ✅ REAL API CALL — replaces the demo setTimeout
-      const response = await API.post("/api/auth/login", {
-        email: form.email,
-        password: form.password,
-      });
+      // email + password are encrypted in the browser (see services/loginCrypto.js)
+      const response = await postLogin(form.email, form.password);
 
     //   console.log("API response:", response.data);
 
